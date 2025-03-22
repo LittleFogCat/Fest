@@ -8,5 +8,5 @@ package tech.xiaoniu.fest.annotation
 @Retention(AnnotationRetention.RUNTIME)
 @Target(AnnotationTarget.CLASS)
 annotation class Controller(
-
+    val name: String = ""
 )

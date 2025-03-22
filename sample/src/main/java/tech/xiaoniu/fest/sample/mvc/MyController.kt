@@ -1,7 +1,6 @@
 package tech.xiaoniu.fest.sample.mvc
 
 import tech.xiaoniu.fest.annotation.Autowired
-import tech.xiaoniu.fest.annotation.Component
 import tech.xiaoniu.fest.annotation.Controller
 
 /**

@@ -16,9 +16,12 @@ open class BeanDefinition(
     val dependsOn: Array<String>,
     val singleton: Boolean = true
 ) {
-    var constructorOrFactoryMethod: Executable? = null
-
     override fun toString(): String {
-        return "BeanDefinition(beanName='$beanName', beanClazz=$beanClazz, factoryBeanName=$factoryBeanName, factoryMethodName=$factoryMethodName)"
+        return "BeanDefinition(beanName='$beanName', " +
+                "beanClazz=$beanClazz, " +
+                (factoryBeanName?.let { "factoryBeanName=$it, " } ?: "") +
+                (factoryMethodName?.let { "factoryMethodName=$it, " } ?: "") +
+                (if (dependsOn.isEmpty()) "" else "dependsOn=${dependsOn.contentToString()}, ") +
+                (if (singleton) "S)" else "N)")
     }
 }

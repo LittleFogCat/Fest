@@ -7,9 +7,13 @@ import tech.xiaoniu.fest.annotation.Bean
 import tech.xiaoniu.fest.annotation.Component
 import tech.xiaoniu.fest.annotation.Configuration
 import tech.xiaoniu.fest.exception.BeanException
+import tech.xiaoniu.fest.exception.BeanTypeMismatchException
+import tech.xiaoniu.fest.exception.CircularDependencyException
 import tech.xiaoniu.fest.exception.DuplicatedBeanDefinitionException
+import tech.xiaoniu.fest.exception.NoSuchBeanException
 import tech.xiaoniu.fest.util.ClassUtils
 import tech.xiaoniu.fest.util.ReflectUtil
+import tech.xiaoniu.fest.util.Utils.prettify
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
@@ -34,6 +38,7 @@ class SingletonBeanFactory : BeanFactory {
         val classes = ClassUtils.getFileNameByPackageName(context, context.packageName)
 
         registerBeanDefinitions(classes)
+        Log.i(TAG, "initialize: ${beanDefinitionMap.prettify()}")
         doInstantiation()
     }
 
@@ -179,7 +184,7 @@ class SingletonBeanFactory : BeanFactory {
             val fieldBeanName: String = field.getAnnotation(Autowired::class.java)!!.name.ifEmpty { field.name }
             val fieldDependencies = beanDependenciesMap[fieldBeanName]
             if (fieldDependencies != null && fieldDependencies.contains(beanName)) {
-                throw BeanException("Circular dependency found for $beanName and $fieldBeanName")
+                throw CircularDependencyException(beanName, fieldBeanName)
             }
             return@mapNotNull fieldBeanName
         }.toTypedArray()
@@ -193,9 +198,9 @@ class SingletonBeanFactory : BeanFactory {
             if (!bd.singleton) {
                 continue
             }
-            Log.i(TAG, "doInstantiation: $beanName")
+//            Log.i(TAG, "doInstantiation: $beanName")
             getBean(beanName)
-            Log.d(TAG, "doInstantiation: ${getBean(beanName)}")
+//            Log.d(TAG, "doInstantiation: ${getBean(beanName)}")
         }
     }
 
@@ -208,7 +213,7 @@ class SingletonBeanFactory : BeanFactory {
         val result = when (bd) {
             is ComponentBeanDefinition -> instantiateComponent(beanName, bd)
             is FactoryMethodBeanDefinition -> instantiateUsingFactoryMethod(beanName, bd)
-            else -> throw BeanException("Unexpected BeanDefinition type: ${bd.javaClass}")
+            else -> throw BeanException("Cannot instantiate bean `$beanName`. Unexpected BeanDefinition type: ${bd.javaClass}")
         }
         applyDependencies(result, bd.beanClazz, bd)
         beanNamesByType[bd.beanClazz] = beanName
@@ -220,7 +225,7 @@ class SingletonBeanFactory : BeanFactory {
         val result = try {
             clazz.getDeclaredConstructor().newInstance()
         } catch (e: Exception) {
-            throw BeanException("Cannot instantiate bean `$beanName`")
+            throw BeanException("Cannot instantiate bean `$beanName`", e)
         }
         return result
     }
@@ -232,7 +237,7 @@ class SingletonBeanFactory : BeanFactory {
         val factoryMethod = factoryBean.javaClass.getDeclaredMethod(factoryMethodName)
         val result = factoryMethod.invoke(factoryBean)
         if (result == null || !bd.beanClazz.isInstance(result)) {
-            throw BeanException("The type of bean `$beanName` is expected ${bd.beanClazz}, but actual ${result?.javaClass}")
+            throw BeanTypeMismatchException(beanName, bd.beanClazz, result?.javaClass)
         }
         return result
     }
@@ -247,7 +252,7 @@ class SingletonBeanFactory : BeanFactory {
             val beanName = getBeanNameForAutowiredField(field, autowired)
             val bean = getBean(beanName)
             if (!field.type.isInstance(bean)) {
-                throw BeanException("Bean type of `$beanName` expected to be ${field.type}, but actual ${bean.javaClass}")
+                throw BeanTypeMismatchException(beanName, field.type, bean.javaClass)
             }
             field.set(obj, getBean(beanName))
         }
@@ -280,7 +285,7 @@ class SingletonBeanFactory : BeanFactory {
         if (bd != null) {
             return bd
         }
-        throw BeanException("No such BeanDefinition named $beanName")
+        throw NoSuchBeanException(beanName)
     }
 
 }
